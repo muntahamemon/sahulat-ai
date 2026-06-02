@@ -1,33 +1,4 @@
 {
-    "version": 2,
-    "routes": [
-        {
-            "src": "/orchestrate",
-            "dest": "/api/index.py"
-        },
-        {
-            "src": "/book-service",
-            "dest": "/api/index.py"
-        },
-        {
-            "src": "/update-status",
-            "dest": "/api/index.py"
-        },
-        {
-            "src": "/providers",
-            "dest": "/api/index.py"
-        },
-        {
-            "src": "/",
-            "dest": "/index.html"
-        },
-        {
-            "src": "/style.css",
-            "dest": "/frontend/style.css"
-        },
-        {
-            "src": "/app.js",
-            "dest": "/frontend/app.js"
-        }
-    ]
+  "version": 2,
+  "public": true
 }
