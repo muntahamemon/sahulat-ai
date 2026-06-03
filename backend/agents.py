@@ -43,27 +43,29 @@ def parse_intent(user_input: str) -> dict:
 
     # Location extraction
     area_map = {
-        "g-13": "G-13", "g13": "G-13",
-        "f-7": "F-7", "f7": "F-7",
-        "i-8": "I-8", "i8": "I-8",
-        "g-11": "G-11", "g11": "G-11",
-        "f-6": "F-6", "f6": "F-6",
-        "e-7": "E-7", "e7": "E-7",
-        "h-13": "H-13", "h13": "H-13",
-        "g-9": "G-9", "g9": "G-9",
-        "f-10": "F-10", "f10": "F-10",
-        "f-11": "F-11", "f11": "F-11",
-        "g-8": "G-8", "g8": "G-8",
-        "i-9": "I-9", "i9": "I-9"
-    }
+    "gulshan": "Gulshan-e-Iqbal",
+    "gulshan-e-iqbal": "Gulshan-e-Iqbal",
+    "dha": "DHA Phase 6",
+    "clifton": "Clifton",
+    "pechs": "PECHS",
+    "nazimabad": "Nazimabad",
+    "north nazimabad": "North Nazimabad",
+    "bahadurabad": "Bahadurabad",
+    "saddar": "Saddar",
+    "gulberg": "Gulberg",
+    "fb area": "FB Area",
+    "korangi": "Korangi",
+    "liaquatabad": "Liaquatabad",
+    "defence": "DHA Phase 6",
+}
     location = None
     for key, label in area_map.items():
         if key in text:
             location = label
             break
     if not location:
-        location = "G-13"
-        logs.append(f"[INTENT AGENT] No location found, defaulting to G-13")
+    location = "Gulshan-e-Iqbal"
+    logs.append(f"[INTENT AGENT] No location found, defaulting to Gulshan-e-Iqbal")
     else:
         logs.append(f"[INTENT AGENT] Extracted location: {location}")
 
