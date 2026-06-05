@@ -8,13 +8,11 @@ BOOKINGS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "bookings.
 
 
 def parse_intent(user_input: str) -> dict:
-    """Extracts service_type, location, and time from user input using keyword matching."""
     logs = []
     logs.append(f"[INTENT AGENT] Received input: {user_input}")
 
     text = user_input.lower()
 
-    # Language detection
     urdu_words = ["chahiye", "mujhe", "karo", "hai", "kal", "subah", "mein", "ka", "ki", "ko"]
     if any(w in text for w in urdu_words):
         lang = "Roman Urdu"
@@ -24,7 +22,6 @@ def parse_intent(user_input: str) -> dict:
         lang = "English"
     logs.append(f"[INTENT AGENT] Detected language: {lang}")
 
-    # Service type extraction
     service_map = {
         "AC Technician": ["ac", "air condition", "cooling", "ac technician", "thanda"],
         "Plumber": ["plumber", "plumbing", "pipe", "leak", "paani", "water", "nal"],
@@ -41,35 +38,35 @@ def parse_intent(user_input: str) -> dict:
             break
     logs.append(f"[INTENT AGENT] Extracted service_type: {service_type}")
 
-    # Location extraction
     area_map = {
-    "gulshan": "Gulshan-e-Iqbal",
-    "gulshan-e-iqbal": "Gulshan-e-Iqbal",
-    "dha": "DHA Phase 6",
-    "clifton": "Clifton",
-    "pechs": "PECHS",
-    "nazimabad": "Nazimabad",
-    "north nazimabad": "North Nazimabad",
-    "bahadurabad": "Bahadurabad",
-    "saddar": "Saddar",
-    "gulberg": "Gulberg",
-    "fb area": "FB Area",
-    "korangi": "Korangi",
-    "liaquatabad": "Liaquatabad",
-    "defence": "DHA Phase 6",
-}
+        "gulshan": "Gulshan-e-Iqbal",
+        "gulshan-e-iqbal": "Gulshan-e-Iqbal",
+        "dha": "DHA Phase 6",
+        "defence": "DHA Phase 6",
+        "clifton": "Clifton",
+        "pechs": "PECHS",
+        "nazimabad": "Nazimabad",
+        "north nazimabad": "North Nazimabad",
+        "bahadurabad": "Bahadurabad",
+        "saddar": "Saddar",
+        "gulberg": "Gulberg",
+        "fb area": "FB Area",
+        "korangi": "Korangi",
+        "liaquatabad": "Liaquatabad",
+    }
+
     location = None
     for key, label in area_map.items():
         if key in text:
             location = label
             break
+
     if not location:
-    location = "Gulshan-e-Iqbal"
-    logs.append(f"[INTENT AGENT] No location found, defaulting to Gulshan-e-Iqbal")
+        location = "Gulshan-e-Iqbal"
+        logs.append(f"[INTENT AGENT] No location found, defaulting to Gulshan-e-Iqbal")
     else:
         logs.append(f"[INTENT AGENT] Extracted location: {location}")
 
-    # Time extraction
     time_val = None
     if "kal" in text or "tomorrow" in text:
         time_val = "Tomorrow"
@@ -95,7 +92,6 @@ def parse_intent(user_input: str) -> dict:
 
 
 def discover_providers(service_type: str, location: str, all_providers: list) -> dict:
-    """Filters providers by service type match."""
     logs = []
     logs.append(f"[DISCOVERY AGENT] Searching for: {service_type} near {location}")
 
@@ -109,12 +105,12 @@ def discover_providers(service_type: str, location: str, all_providers: list) ->
     ]
 
     if not filtered:
-        logs.append("[DISCOVERY AGENT] No exact match found. Expanding search to nearby categories.")
-        sorted_providers = sorted(all_providers, key=lambda x: x.get("rating", 0), reverse=True)
-        filtered = sorted_providers[:2]
-        logs.append(f"[DISCOVERY AGENT] DECISION: Returning top {len(filtered)} highest rated providers overall as fallback.")
+        logs.append(f"[DISCOVERY AGENT] No exact match found. Expanding search.")
+        filtered = sorted(all_providers, key=lambda x: x["rating"], reverse=True)[:2]
+        logs.append(f"[DISCOVERY AGENT] Fallback: returning top {len(filtered)} rated providers")
+    else:
+        logs.append(f"[DISCOVERY AGENT] Found {len(filtered)} providers: {[p['name'] for p in filtered]}")
 
-    logs.append(f"[DISCOVERY AGENT] Found {len(filtered)} providers: {[p['name'] for p in filtered]}")
     return {"providers": filtered, "logs": logs}
 
 
@@ -134,7 +130,7 @@ def rank_providers(providers: list) -> dict:
 
         reasoning = (
             f"Distance {p['distance_from_g13_km']}km (score: {round(dist_score,3)}) + "
-            f"Rating {p['rating']}★ (score: {round(rating_score,3)}) + "
+            f"Rating {p['rating']}* (score: {round(rating_score,3)}) + "
             f"{len(p['available_slots'])} slots (score: {round(slots_score,3)})"
         )
 
@@ -148,14 +144,14 @@ def rank_providers(providers: list) -> dict:
     for i, p in enumerate(ranked):
         logs.append(f"[RANKING AGENT] Rank {i+1}: {p['name']} ({p['score']})")
 
-    logs.append(f"[RANKING AGENT] DECISION: Recommending {ranked[0]['name']} — highest composite score of {ranked[0]['score']}")
-    logs.append(f"[RANKING AGENT] Reasoning: {ranked[0]['reasoning']}")
+    if ranked:
+        logs.append(f"[RANKING AGENT] DECISION: Recommending {ranked[0]['name']} - highest composite score of {ranked[0]['score']}")
+        logs.append(f"[RANKING AGENT] Reasoning: {ranked[0]['reasoning']}")
 
     return {"ranked": ranked, "logs": logs}
 
 
 def simulate_booking(provider: dict, time_slot: str, service_type: str) -> dict:
-    """Creates a confirmed booking and writes to bookings.json."""
     logs = []
     booking_id = "BK-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
     logs.append(f"[BOOKING AGENT] Generating booking ID: {booking_id}")
@@ -237,54 +233,3 @@ def schedule_followup(booking: dict, reminder_minutes: int = 60) -> dict:
             "message": "Reminder could not be scheduled",
             "logs": logs
         }
-
-
-def update_booking_status(booking_id: str, status: str) -> dict:
-    """Updates the status of an existing booking in bookings.json."""
-    logs = []
-    allowed_statuses = ["confirmed", "provider_notified", "en_route", "completed"]
-
-    if status not in allowed_statuses:
-        logs.append(f"[STATUS AGENT] Invalid status requested: {status}")
-        return {
-            "success": False,
-            "message": f"Invalid status. Must be one of: {', '.join(allowed_statuses)}",
-            "logs": logs
-        }
-
-    logs.append(f"[STATUS AGENT] Request to update booking {booking_id} to '{status}'")
-
-    if not os.path.exists(BOOKINGS_FILE):
-        logs.append("[STATUS AGENT] bookings.json does not exist")
-        return {"success": False, "message": "No bookings file found.", "logs": logs}
-
-    try:
-        with open(BOOKINGS_FILE, "r") as f:
-            bookings = json.load(f)
-
-        booking_found = False
-        updated_booking = None
-
-        for b in bookings:
-            if b["booking_id"] == booking_id:
-                old_status = b.get("status", "unknown")
-                b["status"] = status
-                b["last_updated"] = datetime.now().isoformat()
-                updated_booking = b
-                booking_found = True
-                logs.append(f"[STATUS AGENT] Transition: {old_status} -> {status}")
-                break
-
-        if not booking_found:
-            logs.append(f"[STATUS AGENT] Booking {booking_id} not found")
-            return {"success": False, "message": f"Booking {booking_id} not found.", "logs": logs}
-
-        with open(BOOKINGS_FILE, "w") as f:
-            json.dump(bookings, f, indent=4)
-
-        logs.append(f"[STATUS AGENT] Successfully updated status and saved to disk")
-        return {"success": True, "booking": updated_booking, "logs": logs}
-
-    except Exception as e:
-        logs.append(f"[STATUS AGENT] Critical error: {str(e)}")
-        return {"success": False, "message": str(e), "logs": logs}
