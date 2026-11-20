@@ -4,11 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="manifest.json">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Sahulat.ai — Service Orchestrator</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -342,7 +339,7 @@
 
         .providers-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
             gap: 12px;
             margin-bottom: 32px;
         }
@@ -536,6 +533,10 @@
         }
 
         @media (max-width: 480px) {
+            .search-wrap {
+                flex-direction: column;
+            }
+
             .confirm-grid {
                 grid-template-columns: 1fr;
             }
@@ -1190,7 +1191,6 @@
     <div class="toast" id="toast"></div>
 
     <script>
-const API = 'https://sahulat-ai-rho.vercel.app'
         let allLogs = [];
         let selectedSlots = {};
         let map, markers = [];
@@ -1348,7 +1348,7 @@ const API = 'https://sahulat-ai-rho.vercel.app'
             document.getElementById('loadingText').textContent = 'Intent Agent parsing request...';
 
             try {
-                const res = await fetch(`${API}/orchestrate`, {
+                const res = await fetch('/orchestrate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_input: input })
@@ -1545,7 +1545,7 @@ const API = 'https://sahulat-ai-rho.vercel.app'
             if (btn) { btn.disabled = true; btn.textContent = 'Booking...'; }
 
             try {
-                const res = await fetch(`${API}/book-service`, {
+                const res = await fetch('/book-service', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1633,7 +1633,7 @@ const API = 'https://sahulat-ai-rho.vercel.app'
                 await new Promise(r => setTimeout(r, 1500));
 
                 try {
-                    const res = await fetch(`${API}/update-status`, {
+                    const res = await fetch('/update-status', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
