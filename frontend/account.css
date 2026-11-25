@@ -1,0 +1,24 @@
+.app-nav { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end }
+.app-nav button,.panel button { font:inherit; cursor:pointer; border:1px solid var(--border); border-radius:9px; padding:8px 12px; background:transparent; color:var(--text) }
+.app-nav button:hover,.panel button:hover { border-color:var(--accent) }
+.app-nav .chat-trigger,.panel .primary { background:var(--accent); color:#06241b; border-color:var(--accent); font-weight:700 }
+.panel { width:min(560px,calc(100% - 26px)); max-height:85dvh; overflow:auto; padding:24px; border:1px solid var(--border); border-radius:16px; background:var(--bg); color:var(--text); margin:auto }
+.panel::backdrop { background:#080d17a8 }
+.panel-header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px }
+.panel h2,.panel h3,.panel p { margin:0 }
+.panel form,.panel label,.request-list,.chat-messages { display:grid; gap:10px }
+.panel form { margin:16px 0 0 }
+.panel input { width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; font:inherit; background:transparent; color:inherit }
+.panel input:focus-visible,.panel button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
+.panel #panelError { margin-top:12px; color:#d66363 }
+.panel .request-item { display:grid; gap:6px; border:1px solid var(--border); border-radius:12px; padding:14px }
+.panel .status-chip { justify-self:start; border:1px solid var(--accent); border-radius:999px; padding:3px 9px; font-size:.85rem }
+.chat-messages { max-height:42dvh; overflow:auto }
+.chat-messages p { padding:10px 12px; border:1px solid var(--border); border-radius:10px; overflow-wrap:anywhere }
+.chat-messages .user-message { margin-left:24px; border-color:var(--accent) }
+.panel .subtle,.map-caption { color:var(--muted); font-size:.9rem }
+.map-caption { margin:0 0 10px }
+@media(max-width:570px) {
+  header { gap:12px; flex-wrap:wrap }
+  .app-nav { justify-content:flex-start }
+}

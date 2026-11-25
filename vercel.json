@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/index.py": {
-      "includeFiles": "{index.html,frontend/manifest.json}"
+      "includeFiles": "{index.html,frontend/manifest.json,frontend/account.css,frontend/account.js}"
     }
   }
 }

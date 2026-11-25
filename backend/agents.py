@@ -1,10 +1,9 @@
-import os
-import json
-import random
-import string
+from uuid import uuid4
+import re
+from math import asin, cos, radians, sin, sqrt
+from .mock_data import AREA_COORDS
 from datetime import datetime, timedelta
 
-BOOKINGS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "bookings.json")
 
 
 def parse_intent(user_input: str) -> dict:
@@ -33,7 +32,7 @@ def parse_intent(user_input: str) -> dict:
 
     service_type = None
     for stype, keywords in service_map.items():
-        if any(kw in text for kw in keywords):
+        if any(re.search(r"(?<!\w)" + re.escape(kw) + r"(?!\w)", text) for kw in keywords):
             service_type = stype
             break
     logs.append(f"[INTENT AGENT] Extracted service_type: {service_type}")
@@ -56,7 +55,8 @@ def parse_intent(user_input: str) -> dict:
     }
 
     location = None
-    for key, label in area_map.items():
+    for key in sorted(area_map, key=len, reverse=True):
+        label = area_map[key]
         if key in text:
             location = label
             break
@@ -104,37 +104,34 @@ def discover_providers(service_type: str, location: str, all_providers: list) ->
         if p["service_type"].lower() == service_type.lower()
     ]
 
-    if not filtered:
-        logs.append(f"[DISCOVERY AGENT] No exact match found. Expanding search.")
-        filtered = sorted(all_providers, key=lambda x: x["rating"], reverse=True)[:2]
-        logs.append(f"[DISCOVERY AGENT] Fallback: returning top {len(filtered)} rated providers")
-    else:
-        logs.append(f"[DISCOVERY AGENT] Found {len(filtered)} providers: {[p['name'] for p in filtered]}")
-
+    logs.append(f"[DISCOVERY AGENT] Found {len(filtered)} matching providers")
     return {"providers": filtered, "logs": logs}
 
 
-def rank_providers(providers: list) -> dict:
+def rank_providers(providers: list, location: str) -> dict:
     logs = []
-    logs.append(f"[RANKING AGENT] Evaluating {len(providers)} candidates")
-    logs.append(f"[RANKING AGENT] Decision criteria: proximity to user location, service rating, slot availability")
-    logs.append(f"[RANKING AGENT] Applying weighted scoring model")
-    logs.append("[RANKING AGENT] Formula: (1/distance * 0.4) + (rating/5 * 0.4) + (slots/3 * 0.2)")
+    origin_lat, origin_lon = map(radians, AREA_COORDS[location])
 
     ranked = []
     for p in providers:
-        dist_score = (1 / (p["distance_from_g13_km"] + 0.1)) * 0.4
+        lat, lon = radians(p["lat"]), radians(p["long"])
+        distance = round(12742 * asin(sqrt(
+            sin((lat - origin_lat) / 2) ** 2
+            + cos(lat) * cos(origin_lat) * sin((lon - origin_lon) / 2) ** 2
+        )), 1)
+        dist_score = 0.4 / (1 + distance)
         rating_score = (p["rating"] / 5.0) * 0.4
         slots_score = (len(p["available_slots"]) / 3.0) * 0.2
         total_score = round(dist_score + rating_score + slots_score, 3)
 
         reasoning = (
-            f"Distance {p['distance_from_g13_km']}km (score: {round(dist_score,3)}) + "
+            f"Distance {distance}km (score: {round(dist_score,3)}) + "
             f"Rating {p['rating']}* (score: {round(rating_score,3)}) + "
             f"{len(p['available_slots'])} slots (score: {round(slots_score,3)})"
         )
 
         p_copy = dict(p)
+        p_copy["distance_km"] = distance
         p_copy["score"] = total_score
         p_copy["reasoning"] = reasoning
         ranked.append(p_copy)
@@ -153,7 +150,7 @@ def rank_providers(providers: list) -> dict:
 
 def simulate_booking(provider: dict, time_slot: str, service_type: str) -> dict:
     logs = []
-    booking_id = "BK-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    booking_id = "BK-" + uuid4().hex[:12].upper()
     logs.append(f"[BOOKING AGENT] Generating booking ID: {booking_id}")
 
     booking = {
@@ -170,21 +167,6 @@ def simulate_booking(provider: dict, time_slot: str, service_type: str) -> dict:
 
     logs.append(f"[BOOKING AGENT] Provider assigned: {provider['name']}")
     logs.append(f"[BOOKING AGENT] Slot confirmed: {time_slot}")
-
-    try:
-        bookings = []
-        if os.path.exists(BOOKINGS_FILE):
-            with open(BOOKINGS_FILE, "r") as f:
-                try:
-                    bookings = json.load(f)
-                except Exception:
-                    bookings = []
-        bookings.append(booking)
-        with open(BOOKINGS_FILE, "w") as f:
-            json.dump(bookings, f, indent=4)
-        logs.append(f"[BOOKING AGENT] Booking written to bookings.json")
-    except Exception as e:
-        logs.append(f"[BOOKING AGENT] File error: {str(e)}")
 
     confirmation = (
         f"Booking {booking_id} confirmed! {service_type} with {provider['name']} "
@@ -207,18 +189,6 @@ def schedule_followup(booking: dict, reminder_minutes: int = 60) -> dict:
         slot_time = datetime.strptime(booking["slot"], "%I:%M %p")
         reminder_time = (slot_time - timedelta(minutes=reminder_minutes)).strftime("%I:%M %p")
         logs.append(f"[FOLLOWUP AGENT] Reminder set for {reminder_time} ({reminder_minutes} mins before {booking['slot']})")
-
-        if os.path.exists(BOOKINGS_FILE):
-            with open(BOOKINGS_FILE, "r") as f:
-                bookings = json.load(f)
-            for b in bookings:
-                if b["booking_id"] == booking["booking_id"]:
-                    b["reminder"] = reminder_time
-                    b["reminder_minutes"] = reminder_minutes
-                    break
-            with open(BOOKINGS_FILE, "w") as f:
-                json.dump(bookings, f, indent=4)
-            logs.append(f"[FOLLOWUP AGENT] Reminder saved to bookings.json")
 
         return {
             "reminder_time": reminder_time,

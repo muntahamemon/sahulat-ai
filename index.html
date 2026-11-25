@@ -1056,6 +1056,7 @@
             background: #00ffa8;
         }
     </style>
+    <link rel="stylesheet" href="/assets/account.css">
 </head>
 
 <body>
@@ -1064,35 +1065,37 @@
 
         <header>
             <div class="logo">Sahulat<span>.ai</span></div>
-            <div style="display:flex;align-items:center;gap:12px">
-                <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
-
-            </div>
+            <nav class="app-nav" aria-label="Account and assistance">
+                <button type="button" id="requestsBtn">My requests</button>
+                <button type="button" id="profileBtn">Log in</button>
+                <button type="button" class="chat-trigger" id="chatBtn">AI chat</button>
+                <button aria-label="Toggle color theme" class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+            </nav>
         </header>
 
 
         <section class="hero">
-            <h1>Find trusted services<br>in <em>Islamabad</em></h1>
+            <h1>Find trusted services<br>in <em>Karachi</em></h1>
             <p>Type your request in English, Urdu, or Roman Urdu — AI agents handle the rest</p>
 
             <div class="search-wrap">
-                <input type="text" id="userInput" placeholder='e.g. "G-13 mein AC technician chahiye kal subah"'
+                <input type="text" id="userInput" maxlength="500" aria-label="Service request" placeholder='e.g. "Gulshan-e-Iqbal mein AC technician chahiye kal subah"'
                     autocomplete="off">
                 <button id="searchBtn" onclick="runOrchestration()">Find →</button>
             </div>
 
             <div class="chips">
-                <div class="chip" onclick="fillInput('G-13 mein AC technician chahiye kal subah')">🌀 AC Technician
+                <div class="chip" onclick="fillInput('Gulshan-e-Iqbal mein AC technician chahiye kal subah')">🌀 AC Technician
                 </div>
-                <div class="chip" onclick="fillInput('I need a plumber in F-7 today')">🔧 Plumber</div>
-                <div class="chip" onclick="fillInput('F-10 mein electrician chahiye')">⚡ Electrician</div>
-                <div class="chip" onclick="fillInput('Mujhe G-11 mein tutor chahiye sham ko')">📚 Tutor</div>
-                <div class="chip" onclick="fillInput('Beautician chahiye G-9 mein')">💄 Beautician</div>
+                <div class="chip" onclick="fillInput('I need a plumber in Clifton today')">🔧 Plumber</div>
+                <div class="chip" onclick="fillInput('Korangi mein electrician chahiye')">⚡ Electrician</div>
+                <div class="chip" onclick="fillInput('Mujhe North Nazimabad mein tutor chahiye sham ko')">📚 Tutor</div>
+                <div class="chip" onclick="fillInput('Beautician chahiye Saddar mein')">💄 Beautician</div>
             </div>
         </section>
 
         <!-- Pipeline steps -->
-        <div class="pipeline" id="pipeline">
+        <div class="pipeline" id="pipeline" aria-label="Search progress">
             <div class="step pending" id="step1">
                 <div class="step-icon">01</div>
                 <div class="step-body">
@@ -1119,7 +1122,7 @@
             </div>
         </div>
 
-        <div class="loading" id="loading">
+        <div class="loading" id="loading" role="status">
             <div class="spinner"></div>
             <span id="loadingText">Agents working...</span>
         </div>
@@ -1127,10 +1130,12 @@
         <!-- Results -->
         <div id="resultsArea" style="display:none">
 
-            <div class="section-title" id="resultsTitle">Recommended Providers</div>
+            <div class="section-title" id="resultsTitle" role="status">Recommended Providers</div>
+            <p class="map-caption">Sample providers and simulated bookings.</p>
             <div class="providers-grid" id="providersGrid"></div>
 
-            <div class="section-title">Service Coverage Map</div>
+            <div class="section-title">Karachi service map</div>
+            <p class="map-caption">Pins show approximate neighborhoods for sample providers.</p>
             <div id="map"></div>
 
             <!-- Booking confirmation -->
@@ -1197,7 +1202,7 @@
 
         function initMap() {
             if (map) return;
-            map = L.map('map').setView([33.6493, 72.9692], 13);
+            map = L.map('map').setView([24.89, 67.07], 12);
             const isDark = !document.body.classList.contains('light');
             const tileUrl = isDark
                 ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
@@ -1209,29 +1214,13 @@
             }).addTo(map);
         }
 
-        function updateMap(providers, userArea) {
+        function updateMap(providers, userArea, searchLocation) {
             initMap();
             // Clear previous markers and route lines
             markers.forEach(m => map.removeLayer(m));
             markers = [];
-            if (window.routeLine) map.removeLayer(window.routeLine);
 
-            const areaCoords = {
-                'G-13': [33.6493, 72.9692],
-                'F-7': [33.7200, 73.0500],
-                'I-8': [33.6680, 73.0750],
-                'G-11': [33.6670, 72.9970],
-                'F-6': [33.7290, 73.0740],
-                'E-7': [33.7310, 73.0410],
-                'H-13': [33.6350, 72.9550],
-                'G-9': [33.6840, 73.0300],
-                'F-10': [33.7000, 73.0000],
-                'F-11': [33.6900, 72.9800],
-                'G-8': [33.6950, 73.0450],
-                'I-9': [33.6550, 73.0600]
-            };
-
-            const userPos = areaCoords[userArea] || areaCoords['G-13'];
+            const userPos = searchLocation;
 
             // Add user location marker (pulsing blue)
             const userIcon = L.divIcon({
@@ -1241,7 +1230,7 @@
                 iconAnchor: [12, 12]
             });
             const userMarker = L.marker(userPos, { icon: userIcon }).addTo(map);
-            userMarker.bindPopup(`Your Location: ${userArea || 'G-13'}`);
+            userMarker.bindPopup(`Search area: ${userArea || 'Gulshan-e-Iqbal'}`);
             markers.push(userMarker);
 
             providers.forEach((p, i) => {
@@ -1259,21 +1248,12 @@
                     <div class="popup-title">${p.name} (${p.area})</div>
                     <div class="popup-info">
                         ⭐ ${p.rating} Rating<br>
-                        📍 ${p.distance_from_g13_km}km distance
+                        📍 ${p.distance_km}km distance
                     </div>
                 `;
                 marker.bindPopup(popupContent);
                 markers.push(marker);
 
-                // Draw line from user to best match
-                if (i === 0) {
-                    window.routeLine = L.polyline([userPos, [p.lat, p.long]], {
-                        color: '#00e5a0',
-                        weight: 2,
-                        dashArray: '5, 10',
-                        opacity: 0.6
-                    }).addTo(map);
-                }
             });
 
             if (markers.length > 0) {
@@ -1304,27 +1284,32 @@
         function setStep(id, state, detail) {
             const el = document.getElementById(id);
             el.className = 'step ' + state;
-            if (detail) document.getElementById(id + 'detail').textContent = detail;
+            document.getElementById(id + 'detail').textContent = detail;
         }
 
         function renderLogs(logs) {
             const box = document.getElementById('logsBox');
-            box.innerHTML = logs.map(l => {
+            box.replaceChildren(...logs.map(l => {
                 let cls = 'log-line';
                 if (l.includes('INTENT')) cls += ' intent';
                 else if (l.includes('DISCOVERY')) cls += ' discovery';
                 else if (l.includes('RANKING')) cls += ' ranking';
                 else if (l.includes('BOOKING')) cls += ' booking';
                 else if (l.includes('FOLLOWUP')) cls += ' followup';
-                return `<div class="${cls}">${l}</div>`;
-            }).join('');
+                const line = document.createElement('div');
+                line.className = cls;
+                line.textContent = l;
+                return line;
+            }));
         }
 
         async function runOrchestration() {
+            if (document.getElementById("searchBtn").disabled) return;
             const input = document.getElementById('userInput').value.trim();
             if (!input) { showToast('Please enter a request'); return; }
 
             // Reset UI
+            selectedSlots = {};
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('resultsArea').style.display = 'none';
             document.getElementById('bookingConfirm').classList.remove('visible');
@@ -1359,41 +1344,19 @@
 
                 if (!data.success) {
                     setStep('step1', 'error', data.message);
-                    document.getElementById('loading').classList.remove('visible');
-                    document.getElementById('searchBtn').disabled = false;
                     showToast('Could not process request: ' + data.message);
-                    return;
+                    return data;
                 }
 
                 const intent = data.intent;
-                setStep('step1', 'done',
-                    `${intent.language} detected · Service: ${intent.service_type} · Location: ${intent.location} · Time: ${intent.time}`);
-
-                document.getElementById('loadingText').textContent = 'Discovery Agent finding providers...';
-                setStep('step2', 'active', '');
-
-                await new Promise(r => setTimeout(r, 400));
-
                 const providers = data.providers;
-                setStep('step2', 'done', `Found ${providers.length} providers for ${intent.service_type}`);
-
-                document.getElementById('loadingText').textContent = 'Ranking Agent scoring matches...';
-                setStep('step3', 'active', '');
-
-                await new Promise(r => setTimeout(r, 400));
-
-                setStep('step3', 'done',
-                    `Ranked by distance (40%) + rating (40%) + availability (20%)`);
-
-                document.getElementById('loading').classList.remove('visible');
-                document.getElementById('searchBtn').disabled = false;
 
                 // Render providers
                 const title = document.getElementById('resultsTitle');
-                title.textContent = `${providers.length} ${intent.service_type}s found near ${intent.location}`;
+                title.textContent = `${providers.length} ${intent.service_type.toLowerCase()} match${providers.length === 1 ? '' : 'es'} near ${intent.location}`;
 
                 const grid = document.getElementById('providersGrid');
-                grid.innerHTML = providers.slice(0, 3).map((p, i) => {
+                grid.innerHTML = providers.map(p => {
                     const maxScore = providers[0].score;
                     const pct = Math.round((p.score / maxScore) * 100);
                     const slots = p.available_slots.map(s =>
@@ -1402,13 +1365,13 @@
                     return `
         <div class="provider-card">
           <div class="provider-name">${p.name}</div>
-<div class="provider-area">📍 ${p.area}, Islamabad · ${p.experience_years || 5} yrs exp · ${p.jobs_completed || 100}+ jobs</div>          <div class="provider-stats">
+<div class="provider-area">📍 ${p.area}, Karachi · ${p.experience_years || 5} yrs exp · ${p.jobs_completed || 100}+ jobs</div>          <div class="provider-stats">
             <div class="stat">
               <div class="stat-val">${p.rating}★</div>
               <div class="stat-label">Rating</div>
             </div>
             <div class="stat">
-              <div class="stat-val">${p.distance_from_g13_km}km</div>
+              <div class="stat-val">${p.distance_km}km</div>
               <div class="stat-label">Distance</div>
             </div>
             <div class="stat">
@@ -1432,16 +1395,16 @@
                 renderLogs(allLogs);
                 document.getElementById('resultsArea').style.display = 'block';
 
-                // Update map markers
-                setTimeout(() => {
-                    updateMap(providers, intent.location);
-                }, 100);
+                if (typeof L !== 'undefined') updateMap(providers, intent.location, data.location_coordinates);
+                return data;
 
             } catch (err) {
-                document.getElementById('loading').classList.remove('visible');
-                document.getElementById('searchBtn').disabled = false;
                 showToast('Connection error — is the server running?');
                 console.error(err);
+            } finally {
+                document.getElementById('pipeline').classList.remove('visible');
+                document.getElementById('loading').classList.remove('visible');
+                document.getElementById('searchBtn').disabled = false;
             }
         }
 
@@ -1453,6 +1416,10 @@
         }
 
         async function bookProvider(provider, providerId) {
+            if (!signedInAccount) {
+                showAccount('login', () => bookProvider(provider, providerId));
+                return;
+            }
             // Show custom modal instead of browser confirm
             const slot = selectedSlots[providerId] || provider.available_slots[0];
 
@@ -1463,7 +1430,7 @@
         <div class="bm-header">
           <div>
             <div class="bm-title">${provider.name}</div>
-            <div class="bm-subtitle">📍 ${provider.area}, Islamabad · ${provider.experience_years || 5} yrs experience</div>
+            <div class="bm-subtitle">📍 ${provider.area}, Karachi · ${provider.experience_years || 5} yrs experience</div>
           </div>
           <button class="bm-close" onclick="document.getElementById('bookingModal').remove()">✕</button>
         </div>
@@ -1523,10 +1490,11 @@
 
             // Set selected slot
             window._modalSelectedSlot = slot;
+            window._reminderMinutes = 60;
         }
 
         function selectModalSlot(el, slot) {
-            document.querySelectorAll('.bm-slot').forEach(s => s.classList.remove('selected'));
+            document.querySelectorAll('#modalSlots .bm-slot').forEach(s => s.classList.remove('selected'));
             el.classList.add('selected');
             window._modalSelectedSlot = slot;
         }
@@ -1549,17 +1517,24 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        provider: provider,
+                        provider_id: provider.id,
                         time_slot: slot,
-                        service_type: provider.service_type,
                         reminder_minutes: window._reminderMinutes || 60
                     })
                 });
 
                 const data = await res.json();
 
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        setAccount(null);
+                        showAccount('login', () => bookProvider(provider, provider.id));
+                    }
+                    throw new Error(typeof data.detail === 'string' ? data.detail : 'Booking failed. Try again.');
+                }
                 if (data.success) {
                     const b = data.booking;
+                    resetBookingProgress();
                     allLogs = [...allLogs, ...data.logs];
                     renderLogs(allLogs);
 
@@ -1594,7 +1569,7 @@
                     const reminderMins = window._reminderMinutes || 60;
                     const reminderLabel = reminderMins === 30 ? '30 minutes' : reminderMins === 120 ? '2 hours' : '1 hour';
                     document.getElementById('reminderBadge').textContent =
-                        `🔔 Reminder scheduled at ${data.reminder} — ${reminderLabel} before your appointment`;
+                        `Reminder time: ${data.reminder} (${reminderLabel} before your appointment)`;
 
                     document.getElementById('bookingConfirm').classList.add('visible');
                     document.getElementById('bookingConfirm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1611,7 +1586,7 @@
                 }
             } catch (err) {
                 if (btn) { btn.disabled = false; btn.textContent = 'Book ' + provider.name.split(' ')[0]; }
-                showToast('Booking failed — try again');
+                showToast(err.message || 'Booking failed. Try again.');
             }
         }
 
@@ -1621,6 +1596,21 @@
 
         let currentBookingId = null;
 
+        let bookingProgress = 0;
+
+        function resetBookingProgress() {
+            bookingProgress = 0;
+            document.querySelectorAll('.status-line').forEach(line => line.classList.remove('active'));
+            ['ss2', 'ss3', 'ss4'].forEach((id, index) => {
+                const step = document.getElementById(id);
+                step.className = 'status-step pending';
+                step.querySelector('.status-dot').textContent = index + 2;
+            });
+            const button = document.querySelector('.simulate-btn');
+            button.disabled = false;
+            button.textContent = 'Simulate progress';
+        }
+
         async function simulateProgress() {
             const statuses = ['provider_notified', 'en_route', 'completed'];
             const stepIds = ['ss2', 'ss3', 'ss4'];
@@ -1629,25 +1619,34 @@
             btn.disabled = true;
             btn.textContent = '⏳ Simulating...';
 
-            for (let i = 0; i < statuses.length; i++) {
+            const bookingId = currentBookingId;
+            for (let i = bookingProgress; i < statuses.length; i++) {
                 await new Promise(r => setTimeout(r, 1500));
 
+                if (bookingId !== currentBookingId) return;
                 try {
                     const res = await fetch('/update-status', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            booking_id: currentBookingId,
+                            booking_id: bookingId,
                             status: statuses[i]
                         })
                     });
                     const data = await res.json();
+                    if (!res.ok || !data.success) throw new Error(data.detail || "Could not update the status.");
+                    if (bookingId !== currentBookingId) return;
+                    bookingProgress = i + 1;
                     if (data.logs) {
                         allLogs = [...allLogs, ...data.logs];
                         renderLogs(allLogs);
                     }
                 } catch (e) {
-                    console.error('Status update error:', e);
+                    if (bookingId !== currentBookingId) return;
+                    btn.disabled = false;
+                    btn.textContent = 'Resume simulation';
+                    showToast(e.message);
+                    return;
                 }
 
                 document.getElementById(lineIds[i]).classList.add('active');
@@ -1687,6 +1686,15 @@
         }
 
     </script>
+    <dialog id="accountPanel" class="panel" aria-labelledby="panelTitle">
+        <div class="panel-header">
+            <h2 id="panelTitle"></h2>
+            <button id="closePanel" type="button" aria-label="Close">Close</button>
+        </div>
+        <div id="panelContent"></div>
+        <p id="panelError" role="alert"></p>
+    </dialog>
+    <script src="/assets/account.js"></script>
 </body>
 
 </html>
