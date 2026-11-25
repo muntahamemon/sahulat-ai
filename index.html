@@ -795,13 +795,10 @@
 
         /* Map */
         #map {
-            height: 400px;
-            width: 100%;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            margin-bottom: 32px;
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
             background: var(--surface);
-            z-index: 1;
         }
 
         .leaflet-popup-content-wrapper {
@@ -1192,9 +1189,11 @@
         <section class="map-section" aria-labelledby="mapTitle">
             <h2 class="section-title" id="mapTitle">Karachi service map</h2>
             <p class="map-caption">Search to see approximate provider locations.</p>
-            <div id="map" aria-label="Interactive map of Karachi" hidden></div>
-            <iframe id="mapFallback" title="Karachi on OpenStreetMap" loading="lazy"
-                src="https://www.openstreetmap.org/export/embed.html?bbox=66.94%2C24.78%2C67.22%2C25.00&amp;layer=mapnik"></iframe>
+            <div class="map-frame">
+                <div id="map" aria-label="Interactive map of Karachi" hidden inert></div>
+                <iframe id="mapFallback" title="Karachi on OpenStreetMap" loading="lazy"
+                    src="https://www.openstreetmap.org/export/embed.html?bbox=66.94%2C24.78%2C67.22%2C25.00&amp;layer=mapnik"></iframe>
+            </div>
             <a class="map-link" id="mapLink" href="https://www.openstreetmap.org/#map=12/24.89/67.07" target="_blank" rel="noopener">Open in OpenStreetMap</a>
         </section>
         </main>
@@ -1228,8 +1227,18 @@
             if (map) return;
             if (typeof L === 'undefined') return;
             const mapElement = document.getElementById('map');
+            // Leaflet's stylesheet positions panes and tiles independently of the map frame.
             mapElement.hidden = false;
-            map = L.map(mapElement).setView([24.89, 67.07], 12);
+            const pane = document.createElement('div');
+            pane.className = 'leaflet-pane';
+            mapElement.append(pane);
+            const stylesheetReady = getComputedStyle(pane).position === 'absolute';
+            pane.remove();
+            if (!stylesheetReady) {
+                mapElement.hidden = true;
+                return;
+            }
+            map = L.map(mapElement, { scrollWheelZoom: false }).setView([24.89, 67.07], 12);
             const fallback = document.getElementById('mapFallback');
             let tilesLoaded = false;
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1240,6 +1249,7 @@
                 fallback.hidden = true;
                 if (!mapElement.classList.contains('tiles-visible')) {
                     mapElement.classList.add('tiles-visible');
+                    mapElement.inert = false;
                     requestAnimationFrame(() => map.invalidateSize());
                 }
             }).on('tileerror', () => {
@@ -1251,8 +1261,10 @@
             const [lat, lon] = searchLocation;
             const fallback = document.getElementById('mapFallback');
             const bounds = [lon - 0.09, lat - 0.07, lon + 0.09, lat + 0.07].join(',');
-            fallback.src = 'https://www.openstreetmap.org/export/embed.html?' +
-                new URLSearchParams({bbox: bounds, layer: 'mapnik', marker: [lat, lon].join(',')});
+            if (!fallback.hidden) {
+                fallback.src = 'https://www.openstreetmap.org/export/embed.html?' +
+                    new URLSearchParams({bbox: bounds, layer: 'mapnik', marker: [lat, lon].join(',')});
+            }
             document.getElementById('mapLink').href = `https://www.openstreetmap.org/#map=13/${lat}/${lon}`;
             initMap();
             if (!map) return;
