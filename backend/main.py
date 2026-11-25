@@ -1,9 +1,10 @@
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from dotenv import load_dotenv
@@ -19,6 +20,7 @@ from .agents import (
 )
 from .mock_data import SERVICE_PROVIDERS
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BOOKINGS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "bookings.json")
 
 app = FastAPI(title="Service Orchestrator API - Islamabad")
@@ -30,6 +32,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/", include_in_schema=False)
+def homepage():
+    return FileResponse(PROJECT_ROOT / "index.html", media_type="text/html")
+
+
+@app.get("/manifest.json", include_in_schema=False)
+def web_manifest():
+    return FileResponse(
+        PROJECT_ROOT / "frontend" / "manifest.json",
+        media_type="application/manifest+json",
+    )
+
 
 class OrchestrationRequest(BaseModel):
     user_input: str
