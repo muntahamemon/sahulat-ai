@@ -1060,6 +1060,7 @@
 </head>
 
 <body>
+    <script>if (location.pathname === "/messages") document.body.classList.add("messages-page");</script>
     <div class="wrapper">
 
 
@@ -1068,12 +1069,13 @@
             <nav class="app-nav" aria-label="Account and assistance">
                 <button type="button" id="requestsBtn">My requests</button>
                 <button type="button" id="profileBtn">Log in</button>
-                <button type="button" class="chat-trigger" id="chatBtn">AI chat</button>
+                <a class="chat-trigger" href="/messages" id="chatBtn">AI chat</a>
                 <button aria-label="Toggle color theme" class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
             </nav>
         </header>
 
 
+        <main id="searchScreen">
         <section class="hero">
             <h1>Find trusted services<br>in <em>Karachi</em></h1>
             <p>Type your request in English, Urdu, or Roman Urdu — AI agents handle the rest</p>
@@ -1134,10 +1136,6 @@
             <p class="map-caption">Sample providers and simulated bookings.</p>
             <div class="providers-grid" id="providersGrid"></div>
 
-            <div class="section-title">Karachi service map</div>
-            <p class="map-caption">Pins show approximate neighborhoods for sample providers.</p>
-            <div id="map"></div>
-
             <!-- Booking confirmation -->
             <div class="booking-confirm" id="bookingConfirm">
                 <div class="confirm-header">
@@ -1191,6 +1189,32 @@
             <p>Enter a service request above to start the AI orchestration</p>
         </div>
 
+        <section class="map-section" aria-labelledby="mapTitle">
+            <h2 class="section-title" id="mapTitle">Karachi service map</h2>
+            <p class="map-caption">Search to see approximate provider locations.</p>
+            <div id="map" aria-label="Interactive map of Karachi" hidden></div>
+            <iframe id="mapFallback" title="Karachi on OpenStreetMap" loading="lazy"
+                src="https://www.openstreetmap.org/export/embed.html?bbox=66.94%2C24.78%2C67.22%2C25.00&amp;layer=mapnik"></iframe>
+            <a class="map-link" id="mapLink" href="https://www.openstreetmap.org/#map=12/24.89/67.07" target="_blank" rel="noopener">Open in OpenStreetMap</a>
+        </section>
+        </main>
+        <main id="messagesScreen" class="messages-screen">
+            <div class="messages-heading">
+                <a href="/">← Back to search</a>
+                <h1>AI chat</h1>
+                <p>Find services in Karachi by telling us what you need.</p>
+                <p id="chatMode">Guided service search</p>
+            </div>
+            <div id="chatMessages" class="chat-messages" role="log" aria-live="polite"></div>
+            <p id="chatStatus" role="status"></p>
+            <form id="chatForm" class="chat-composer">
+                <label for="chatInput">Message</label>
+                <div>
+                    <textarea id="chatInput" rows="2" maxlength="500" required placeholder="I need an electrician in Clifton tomorrow"></textarea>
+                    <button type="submit">Send</button>
+                </div>
+            </form>
+        </main>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -1202,21 +1226,37 @@
 
         function initMap() {
             if (map) return;
-            map = L.map('map').setView([24.89, 67.07], 12);
-            const isDark = !document.body.classList.contains('light');
-            const tileUrl = isDark
-                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
-            L.tileLayer(tileUrl, {
-                attribution: '© OpenStreetMap © CARTO',
+            if (typeof L === 'undefined') return;
+            const mapElement = document.getElementById('map');
+            mapElement.hidden = false;
+            map = L.map(mapElement).setView([24.89, 67.07], 12);
+            const fallback = document.getElementById('mapFallback');
+            let tilesLoaded = false;
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
                 maxZoom: 18
+            }).on('tileload', () => {
+                tilesLoaded = true;
+                fallback.hidden = true;
+                if (!mapElement.classList.contains('tiles-visible')) {
+                    mapElement.classList.add('tiles-visible');
+                    requestAnimationFrame(() => map.invalidateSize());
+                }
+            }).on('tileerror', () => {
+                if (!tilesLoaded) fallback.hidden = false;
             }).addTo(map);
         }
 
         function updateMap(providers, userArea, searchLocation) {
+            const [lat, lon] = searchLocation;
+            const fallback = document.getElementById('mapFallback');
+            const bounds = [lon - 0.09, lat - 0.07, lon + 0.09, lat + 0.07].join(',');
+            fallback.src = 'https://www.openstreetmap.org/export/embed.html?' +
+                new URLSearchParams({bbox: bounds, layer: 'mapnik', marker: [lat, lon].join(',')});
+            document.getElementById('mapLink').href = `https://www.openstreetmap.org/#map=13/${lat}/${lon}`;
             initMap();
-            // Clear previous markers and route lines
+            if (!map) return;
+            // Clear previous markers
             markers.forEach(m => map.removeLayer(m));
             markers = [];
 
@@ -1395,7 +1435,7 @@
                 renderLogs(allLogs);
                 document.getElementById('resultsArea').style.display = 'block';
 
-                if (typeof L !== 'undefined') updateMap(providers, intent.location, data.location_coordinates);
+                updateMap(providers, intent.location, data.location_coordinates);
                 return data;
 
             } catch (err) {
@@ -1695,6 +1735,16 @@
         <p id="panelError" role="alert"></p>
     </dialog>
     <script src="/assets/account.js"></script>
+    <script>
+        if (location.pathname !== '/messages') {
+            initMap();
+            const query = new URLSearchParams(location.search).get('q');
+            if (query) {
+                fillInput(query.slice(0, 500));
+                runOrchestration();
+            }
+        }
+    </script>
 </body>
 
 </html>

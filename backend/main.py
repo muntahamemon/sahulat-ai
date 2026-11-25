@@ -1,5 +1,10 @@
 import secrets
 import re
+import os
+import logging
+from typing import Literal
+from urllib.error import URLError
+from urllib.request import Request as UpstreamRequest, urlopen
 import json
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -32,6 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/messages", include_in_schema=False)
 @app.get("/", include_in_schema=False)
 def homepage():
     return FileResponse(PROJECT_ROOT / "index.html", media_type="text/html")
@@ -109,6 +115,82 @@ def orchestrate(request: OrchestrationRequest):
         "location_coordinates": AREA_COORDS[location],
         "logs": all_logs
     }
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "model"]
+    text: str = Field(min_length=1, max_length=1500)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1, max_length=9)
+
+
+def generate_chat_reply(messages, api_key):
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    if not re.fullmatch(r"[a-zA-Z0-9_.-]+", model):
+        raise ValueError("Invalid Gemini model name.")
+    contents = [{"role": item.role, "parts": [{"text": item.text}]} for item in messages]
+    prompt = (
+        "Help users find local services in Karachi. Reply briefly in their language. "
+        "Use the latest request and relevant context from the conversation. "
+        "Ask for missing service or neighborhood. Never invent providers or claim a booking. "
+        "When the user specifies a supported service and a Karachi area, return a short search query in English, "
+        "including any requested time. Otherwise set query to an empty string. "
+        "Supported services: AC Technician, Plumber, Electrician, Tutor, Beautician, Carpenter. "
+        "Supported areas: " + ", ".join(AREA_COORDS) + "."
+    )
+    body = {"contents": contents, "system_instruction": {"parts": [{"text": prompt}]},
+            "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 500,
+                                 "responseSchema": {"type": "OBJECT", "required": ["reply", "query"],
+                                                    "properties": {"reply": {"type": "STRING"},
+                                                                   "query": {"type": "STRING"}}}}}
+    request = UpstreamRequest(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
+        method="POST",
+    )
+    with urlopen(request, timeout=8) as response:
+        payload = json.load(response)
+    parts = payload["candidates"][0]["content"]["parts"]
+    result = json.loads("".join(part["text"] for part in parts if "text" in part and not part.get("thought")))
+    return result["reply"][:1500], result["query"][:500]
+
+
+@app.post("/chat")
+def chat(chat_request: ChatRequest, request: Request):
+    messages = chat_request.messages
+    if messages[-1].role != "user":
+        raise HTTPException(422, "Send a message to continue.")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key and request.cookies.get(COOKIE):
+        with database() as execute:
+            account_for(execute, request)
+        try:
+            reply, query = generate_chat_reply(messages, api_key)
+            return {"reply": reply, "query": query if query and parse_intent(query)["service_type"] else "",
+                    "mode": "ai"}
+        except (URLError, TimeoutError, ValueError, KeyError, IndexError, TypeError) as error:
+            logging.getLogger(__name__).warning("Gemini response unavailable (%s)", type(error).__name__)
+
+    # The guided search works before signup and when the model is unavailable.
+    user_turns = [item.text for item in messages if item.role == "user"]
+    latest = user_turns[-1][:500]
+    combined = " ".join(user_turns[-2:])[-500:]
+    query = latest if parse_intent(latest)["service_type"] else combined
+    intent = parse_intent(query)
+    if not intent["service_type"]:
+        return {"reply": "Which service do you need? For example, a plumber, electrician or AC technician.",
+                "query": "", "mode": "guided"}
+    if not any("[INTENT AGENT] Extracted location:" in log for log in intent["logs"]):
+        return {"reply": "Which neighborhood in Karachi should I search?", "query": "", "mode": "guided"}
+    result = orchestrate(OrchestrationRequest(user_input=query))
+    if not result["success"]:
+        return {"reply": result["message"], "query": "", "mode": "guided"}
+    count = len(result["providers"])
+    return {"reply": f"I found {count} matches for {intent['service_type']} near {intent['location']}.",
+            "query": query, "mode": "guided"}
+
 
 class Credentials(BaseModel):
     email: str = Field(max_length=254)

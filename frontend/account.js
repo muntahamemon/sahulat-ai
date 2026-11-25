@@ -11,7 +11,6 @@ const requestStatuses = {
 
 let signedInAccount;
 let panelVersion = 0;
-let chatContext = '';
 
 async function accountApi(path, payload) {
     const options = payload === undefined ? {} : {
@@ -134,49 +133,62 @@ function renderChat() {
     const log = document.getElementById('chatMessages');
     log.replaceChildren();
     for (const message of chatMessages) {
+        const bubble = document.createElement('div');
+        bubble.className = message.user ? 'chat-bubble user-message' : 'chat-bubble';
         const line = document.createElement('p');
-        if (message.user) line.className = 'user-message';
         line.textContent = (message.user ? 'You: ' : 'Assistant: ') + message.text;
-        log.append(line);
+        bubble.append(line);
+        if (message.query) {
+            const link = document.createElement('a');
+            link.href = '/?' + new URLSearchParams({ q: message.query });
+            link.textContent = 'View providers and map';
+            bubble.append(link);
+        }
+        log.append(bubble);
     }
     log.scrollTop = log.scrollHeight;
 }
 
-function showChat() {
-    openPanel('AI chat');
-    panelContent.innerHTML = `
-        <div id="chatMessages" class="chat-messages" role="log" aria-live="polite"></div>
-        <form>
-            <label>Message<input name="message" required maxlength="500" autocomplete="off" placeholder="AC technician in Clifton tomorrow morning"></label>
-            <button type="submit" class="primary">Find providers</button>
-        </form>`;
+if (location.pathname === '/messages') {
     renderChat();
-    panelContent.querySelector('form').onsubmit = async event => {
+    const form = document.getElementById('chatForm');
+    const input = document.getElementById('chatInput');
+    const status = document.getElementById('chatStatus');
+    form.onsubmit = async event => {
         event.preventDefault();
-        const input = event.currentTarget.elements.message.value.trim();
-        if (!input) return;
-        if (document.getElementById('searchBtn').disabled) {
-            panelError.textContent = 'A search is already running.';
+        const message = input.value.trim();
+        const button = form.querySelector('button');
+        if (!message || button.disabled) return;
+        button.disabled = true;
+        input.value = '';
+        chatMessages.push({ text: message, user: true });
+        renderChat();
+        status.textContent = 'Assistant is replying…';
+        try {
+            const result = await accountApi('/chat', {
+                messages: chatMessages.slice(1).slice(-9).map(item => ({
+                    role: item.user ? 'user' : 'model',
+                    text: item.text
+                }))
+            });
+            chatMessages.push({ text: result.reply, query: result.query });
+            document.getElementById('chatMode').textContent = result.mode === 'ai' ? 'AI assistant' : 'Guided service search';
+        } catch (error) {
+            status.textContent = error.message;
+            input.value = message;
+            chatMessages.pop();
+            renderChat();
             return;
+        } finally {
+            button.disabled = false;
+            input.focus();
         }
-        chatMessages.push({ text: input, user: true });
-        accountPanel.close();
-        fillInput(chatContext ? (chatContext + ' ' + input).slice(-500) : input);
-        const outcome = await runOrchestration();
-        if (outcome?.success) {
-            chatContext = '';
-            chatMessages.push({ text: `I found ${outcome.providers.length} matching providers for ${outcome.intent.service_type} near ${outcome.intent.location}. Choose a provider from the results to book.` });
-        } else {
-            if (outcome?.message?.startsWith('Could not detect')) chatContext = document.getElementById('userInput').value;
-            chatMessages.push({ text: outcome?.message || 'Try again with the service and neighborhood, for example: plumber in Clifton.' });
-            if (!accountPanel.open) showChat();
-        }
-        if (document.getElementById('chatMessages')) renderChat();
+        status.textContent = '';
+        renderChat();
     };
 }
 
 document.getElementById('profileBtn').onclick = () => showAccount();
 document.getElementById('requestsBtn').onclick = showRequests;
-document.getElementById('chatBtn').onclick = showChat;
 document.getElementById('closePanel').onclick = () => accountPanel.close();
 accountApi('/account').then(setAccount).catch(() => {});
